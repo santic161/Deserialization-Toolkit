@@ -67,12 +67,19 @@ proven detection ideas and modernises everything around them.
   private `URLClassLoader` and calling its payload classes by reflection. **No `java` on your PATH,
   no subprocess, no JVM cold-start.** This eliminates the single most common ysoserial failure mode.
 - **Payload Builder** — type a command like `rm -rf /home/carlos/test.txt`, pick a *Common* (gadget),
-  pick an encoding, and the extension builds the cookie, injects it, sends the request and shows the
+  pick an encoding, and the extension builds the payload, injects it, sends the request and shows the
   response — **without leaving the tab**.
+- **Flexible insertion points** — the payload can go anywhere in the request, not just a cookie:
+  **Selection / caret** (select the bytes to replace, or drop it at the caret), **`{PAYLOAD}` marker**
+  (type the marker where you want it), or **Cookie (auto)**. Insertion is line-break-safe: a payload
+  containing CR/LF/NUL is refused before it can corrupt a header or truncate the request, and
+  `Content-Length` is recomputed automatically after a body insertion.
 - **Gadget recommender** — a per-host intelligence store (`HostIntel`) fed by passive findings,
   fingerprints and confirmed hits ranks chains so the most likely one is pre-selected.
 - **Passive insecure-cookie scanner** — flags:
-  - 🔴 **Serialized Java objects in cookies** (any encoding — raw, Base64, hex, gzip) as *High*.
+  - 🔴 **Serialized Java objects in cookies** (any encoding — raw, Base64, hex, gzip) as *High*, and
+    the finding **names the detected transport encoding** (e.g. "Base64 (URL-encoded)") so you can
+    reproduce it directly in the Payload Builder.
   - 🟠 **Weak cookie flags** (missing `Secure` / `HttpOnly` / `SameSite`) on stateful cookies.
 - **Active detection** — **time-based** (sleep) and **DNS via Burp Collaborator** (URLDNS),
   run concurrently across selected chains.
@@ -211,7 +218,8 @@ Reproducing a PortSwigger *Insecure deserialization* lab:
 2. **Gadget:** the top ★ entry (recommender picks it from passive fingerprints — usually
    `CommonsCollections6` for the labs).
 3. **Encoding:** `Base64 (URL-encoded)` for a cookie.
-4. **Target cookie:** e.g. `session`.
+4. **Insert into:** `Cookie (auto)` for the labs, or `Selection / caret` / `{PAYLOAD} marker` to place
+   the payload in a header, body or query parameter instead.
 5. Click **Generate + Insert + Send**. Read the **Response** on the right.
 
 The encoded payload is shown in the preview box, and the request editor is fully editable if you

@@ -131,13 +131,15 @@ public final class CookiePassiveScanCheck implements ScanCheck {
         if (kind == SerializationDetector.Kind.NONE) return;
 
         HostIntel.get().recordSerializedBlob(host);
+        String encoding = SerializationDetector.describeEncoding(value);
 
         issues.add(AuditIssue.auditIssue(
             "Serialized Java object in cookie: " + name,
-            "The cookie <b>" + esc(name) + "</b> carries a <b>serialized Java object</b> ("
-                + kind + "). If the server deserializes it without validation the application is "
-                + "likely vulnerable to Java deserialization RCE. Use the <i>Payload Builder</i> tab "
-                + "to weaponise this insertion point.",
+            "The cookie <b>" + esc(name) + "</b> carries a <b>serialized Java object</b>, transport "
+                + "encoding: <b>" + esc(encoding) + "</b>. If the server deserializes it without "
+                + "validation the application is likely vulnerable to Java deserialization RCE. Use the "
+                + "<i>Payload Builder</i> tab (select the <b>" + esc(encoding) + "</b> encoding) to "
+                + "weaponise this insertion point.",
             "Do not deserialize attacker-controlled data. Sign+encrypt state cookies (e.g. HMAC), "
                 + "or replace native serialization with a safe format (JSON/Protobuf) and a look-ahead "
                 + "ObjectInputStream allow-list.",

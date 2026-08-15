@@ -68,6 +68,36 @@ public final class SerializationDetector {
         return classify(value) != Kind.NONE;
     }
 
+    /** Human-readable transport encoding of a serialized value, e.g. "Base64 (URL-encoded)". */
+    public static String describeEncoding(String value) {
+        Kind k = classify(value);
+        String base = switch (k) {
+            case BASE64_JAVA_SERIALIZED -> "Base64";
+            case HEX_JAVA_SERIALIZED    -> "ASCII hex";
+            case GZIP_WRAPPED           -> "GZIP (Base64-wrapped)";
+            case RAW_JAVA_SERIALIZED    -> "raw bytes";
+            case NONE                   -> "none";
+        };
+        // A cookie value like rO0AB...%3D%3D is Base64 that was additionally URL-encoded.
+        if (k != Kind.NONE && k != Kind.RAW_JAVA_SERIALIZED && value != null && value.indexOf('%') >= 0) {
+            base += " (URL-encoded)";
+        }
+        return base;
+    }
+
+    /** The Encoder that reproduces the given value's transport form (best match for the builder). */
+    public static String suggestedEncoderName(String value) {
+        Kind k = classify(value);
+        boolean url = value != null && value.indexOf('%') >= 0;
+        return switch (k) {
+            case BASE64_JAVA_SERIALIZED -> url ? "URL_BASE64" : "BASE64";
+            case HEX_JAVA_SERIALIZED    -> "ASCII_HEX";
+            case GZIP_WRAPPED           -> url ? "URL_BASE64_GZIP" : "BASE64_GZIP";
+            case RAW_JAVA_SERIALIZED    -> "RAW";
+            case NONE                   -> "URL_BASE64";
+        };
+    }
+
     /** Framework fingerprint tokens found in a header/cookie name+value pair. */
     public static List<String> fingerprintTokens(String name, String value) {
         String hay = (name + " " + value).toLowerCase();
