@@ -82,7 +82,11 @@ proven detection ideas and modernises everything around them.
     reproduce it directly in the Payload Builder.
   - 🟠 **Weak cookie flags** (missing `Secure` / `HttpOnly` / `SameSite`) on stateful cookies.
 - **Active detection** — **time-based** (sleep) and **DNS via Burp Collaborator** (URLDNS),
-  run concurrently across selected chains.
+  run concurrently across selected chains. The Scanner supports the same insertion points as the
+  builder (**cookie** or **`{PAYLOAD}` marker**), highlights **vulnerable rows in red**, and
+  **sends a confirmed chain to the Payload Builder as a ready-to-fire exploit** in one click
+  (button, double-click, or right-click). Chain errors are collapsed to a one-liner in the table
+  (full cause stays in *Extensions ▸ Errors*).
 - **Multiple encodings** — Raw, Base64, Base64 (URL), ASCII-Hex, GZIP, Base64+GZIP, Base64+GZIP (URL).
 - **Context-menu integration** — right-click any request in Proxy/Repeater → *Send to Payload Builder*
   or *Send to Scanner*.

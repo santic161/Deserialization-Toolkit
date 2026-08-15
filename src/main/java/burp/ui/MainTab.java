@@ -20,7 +20,11 @@ public final class MainTab extends JPanel {
     public MainTab(MontoyaApi api, YsoserialEngine yso, Settings settingsModel, ExecutorProvider executors) {
         super(new BorderLayout());
         this.builder = new PayloadBuilderPanel(api, yso, settingsModel);
-        this.scanner = new ScannerPanel(api, yso, settingsModel, executors);
+        this.scanner = new ScannerPanel(api, yso, settingsModel, executors,
+                (base, gadget, enc, cookieMode, cookieName) -> {
+                    builder.loadExploit(base, gadget, enc, cookieMode, cookieName);
+                    tabs.setSelectedComponent(builder);
+                });
         this.settings = new SettingsPanel(api, settingsModel, yso, () -> {
             builder.refreshGadgets();
             scanner.refreshGadgets();

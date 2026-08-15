@@ -2,6 +2,7 @@ package burp.ui;
 
 import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.ui.editor.HttpRequestEditor;
 
 import java.nio.charset.StandardCharsets;
 
@@ -46,6 +47,24 @@ final class RequestInserter {
     /** Insert at a caret offset (zero-width range). */
     static HttpRequest insertAt(HttpRequest req, int caret, String payload) {
         return replaceRange(req, caret, caret, payload);
+    }
+
+    /**
+     * Convert the editor's current selection into a persistent {@code {PAYLOAD}} marker.
+     *
+     * <p>Captured at click time (while the selection is still valid) and written back into the
+     * request text, so later insertion never depends on a live selection that may have been lost —
+     * the marked bytes are visibly replaced by the marker and will be overwritten on insert.
+     *
+     * @return the updated request, or null if there is no request / no selection
+     */
+    static HttpRequest markSelection(HttpRequestEditor editor) {
+        HttpRequest req = editor.getRequest();
+        if (req == null) return null;
+        var sel = editor.selection();
+        if (sel.isEmpty()) return null;
+        var range = sel.get().offsets();
+        return replaceRange(req, range.startIndexInclusive(), range.endIndexExclusive(), MARKER);
     }
 
     /** Replace every {@code {PAYLOAD}} marker. Returns null if the marker is absent. */

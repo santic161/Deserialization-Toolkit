@@ -40,11 +40,10 @@ public final class PayloadBuilderPanel extends JPanel {
 
     private final JComboBox<String> gadgetCombo = new JComboBox<>();
     private final JComboBox<Encoder> encodingCombo = new JComboBox<>(Encoder.values());
-    private static final String INS_SELECTION = "Selection / caret";
     private static final String INS_MARKER = "{PAYLOAD} marker";
     private static final String INS_COOKIE = "Cookie (auto)";
     private final JComboBox<String> insertModeCombo =
-            new JComboBox<>(new String[]{INS_SELECTION, INS_MARKER, INS_COOKIE});
+            new JComboBox<>(new String[]{INS_MARKER, INS_COOKIE});
     private final JTextField cookieNameField = new JTextField("session", 8);
     private final JTextField commandField = new JTextField("rm -rf /home/carlos/test.txt");
     private final JTextArea payloadPreview = new JTextArea(3, 40);
@@ -108,12 +107,16 @@ public final class PayloadBuilderPanel extends JPanel {
 
         // Row: buttons + recommendation
         row++;
+        JButton markSel  = new JButton("Mark selection");
         JButton generate = new JButton("Generate");
         JButton insert   = new JButton("Insert");
         JButton send     = new JButton("Send");
         JButton genInsertSend = new JButton("Generate + Insert + Send");
         JButton reload   = new JButton("Reload ysoserial");
 
+        markSel.setToolTipText("Replace the currently selected bytes in the request with a "
+                + RequestInserter.MARKER + " marker. The payload will overwrite exactly that spot.");
+        markSel.addActionListener(e -> onMarkSelection());
         generate.addActionListener(e -> onGenerate());
         insert.addActionListener(e -> onInsert(currentEncodedPayload()));
         send.addActionListener(e -> onSend());
@@ -125,7 +128,7 @@ public final class PayloadBuilderPanel extends JPanel {
         cookieNameField.setVisible(false);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        buttons.add(generate); buttons.add(insert); buttons.add(send);
+        buttons.add(markSel); buttons.add(generate); buttons.add(insert); buttons.add(send);
         buttons.add(genInsertSend); buttons.add(reload);
         c.gridx = 0; c.gridy = row; c.gridwidth = 5; c.weightx = 0;
         p.add(buttons, c);
@@ -206,29 +209,49 @@ public final class PayloadBuilderPanel extends JPanel {
         String mode = (String) insertModeCombo.getSelectedItem();
         HttpRequest updated;
         String where;
-        if (INS_MARKER.equals(mode)) {
-            updated = RequestInserter.replaceMarker(req, encoded);
-            if (updated == null) { status("No " + RequestInserter.MARKER + " marker in the request.", true); return false; }
-            where = RequestInserter.MARKER + " marker";
-        } else if (INS_COOKIE.equals(mode)) {
+        if (INS_COOKIE.equals(mode)) {
             String cookie = cookieNameField.getText().trim();
             if (cookie.isEmpty()) { status("Enter a cookie name for Cookie mode.", true); return false; }
             updated = CookieRewriter.setCookie(req, cookie, encoded);
             where = "cookie '" + cookie + "'";
-        } else { // Selection / caret
-            var sel = requestEditor.selection();
-            if (sel.isPresent()) {
-                var r = sel.get().offsets();
-                updated = RequestInserter.replaceRange(req, r.startIndexInclusive(), r.endIndexExclusive(), encoded);
-                where = "selected range";
-            } else {
-                updated = RequestInserter.insertAt(req, requestEditor.caretPosition(), encoded);
-                where = "caret position";
+        } else { // {PAYLOAD} marker
+            updated = RequestInserter.replaceMarker(req, encoded);
+            if (updated == null) {
+                status("No " + RequestInserter.MARKER + " marker — select the bytes to target and "
+                        + "click 'Mark selection' first.", true);
+                return false;
             }
+            where = RequestInserter.MARKER + " marker";
         }
         requestEditor.setRequest(updated);
         status("Inserted payload at " + where + ".", false);
         return true;
+    }
+
+    /** Turn the current editor selection into a {@code {PAYLOAD}} marker (overwrites it on insert). */
+    private void onMarkSelection() {
+        HttpRequest marked = RequestInserter.markSelection(requestEditor);
+        if (marked == null) { status("Select some bytes in the request first.", true); return; }
+        requestEditor.setRequest(marked);
+        insertModeCombo.setSelectedItem(INS_MARKER);
+        status("Insert point set: selection replaced with " + RequestInserter.MARKER
+                + ". Now Generate + Insert to overwrite it.", false);
+    }
+
+    /**
+     * Preload this panel as an exploit from a Scanner hit: request + confirmed gadget + encoding +
+     * insertion mode, ready to fire.
+     */
+    public void loadExploit(HttpRequest base, String gadget, Encoder enc, boolean cookieMode, String cookieName) {
+        if (base != null) requestEditor.setRequest(base);
+        refreshGadgets();
+        if (gadget != null) gadgetCombo.setSelectedItem(gadget);
+        if (enc != null) encodingCombo.setSelectedItem(enc);
+        insertModeCombo.setSelectedItem(cookieMode ? INS_COOKIE : INS_MARKER);
+        if (cookieMode && cookieName != null && !cookieName.isBlank()) cookieNameField.setText(cookieName);
+        updateRecommendationLabel();
+        onGenerate();
+        status("Loaded exploit: " + gadget + " (" + (enc == null ? "" : enc.label()) + ")", false);
     }
 
     private void onSend() {
