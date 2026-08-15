@@ -135,8 +135,13 @@ public final class ScannerPanel extends JPanel {
         gadgets.setPreferredSize(new Dimension(220, 0));
 
         resultsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        DefaultTableCellRenderer left = new DefaultTableCellRenderer();
-        left.setHorizontalAlignment(SwingConstants.LEFT);
+        // Clean grid: the default bright cell borders look noisy in Burp's dark theme.
+        resultsTable.setShowGrid(false);
+        resultsTable.setIntercellSpacing(new Dimension(0, 0));
+        resultsTable.setFillsViewportHeight(true);
+        resultsTable.setRowHeight(Math.max(20, resultsTable.getRowHeight()));
+        resultsTable.getTableHeader().setReorderingAllowed(false);
+        resultsTable.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
         // double-click a row -> send to exploit
         resultsTable.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
