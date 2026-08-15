@@ -1,0 +1,10 @@
+target/
+*.class
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+# Do not commit the (large) ysoserial fat jar
+src/main/resources/ysoserial/ysoserial-all.jar
