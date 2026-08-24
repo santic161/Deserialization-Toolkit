@@ -9,6 +9,11 @@ A modern, faster rewrite of Federico Dotta's classic
 rebuilt on the **Montoya API**, with a text-to-cookie **Payload Builder**, a **gadget recommender**,
 and **passive detection of insecure cookies**.
 
+<!-- Screenshot: "Deserialization Toolkit" tab on the Payload Builder — command + gadget + green response. ~1200-1600px wide. -->
+<img src="docs/hero.png" alt="Deserialization Toolkit — Payload Builder turning a plaintext command into a ysoserial cookie and showing the response" width="820">
+
+<sub><em>From a plaintext command to a ready-to-send ysoserial cookie — and the target's response — in one tab.</em></sub>
+
 [![Burp](https://img.shields.io/badge/Burp%20Suite-Montoya%20API-orange?logo=portswigger&logoColor=white)](https://portswigger.net/burp/documentation/desktop/extensions)
 [![Java](https://img.shields.io/badge/Java-17%2B-007396?logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![Build](https://img.shields.io/badge/build-Maven-C71A36?logo=apachemaven&logoColor=white)](pom.xml)
@@ -34,7 +39,7 @@ and **passive detection of insecure cookies**.
   - [1. Passive: find insecure & serialized cookies](#1-passive-find-insecure--serialized-cookies)
   - [2. Payload Builder: plaintext command → cookie → send](#2-payload-builder-plaintext-command--cookie--send)
   - [3. Scanner: confirm the vulnerability](#3-scanner-confirm-the-vulnerability)
-- [ysoserial setup & Java troubleshooting](#-ysoserial-setup--java-troubleshooting)
+- [Java runtime & troubleshooting](#-java-runtime--troubleshooting)
 - [Performance notes](#-performance-notes)
 - [Configuration reference](#-configuration-reference)
 - [Security & legal](#-security--legal)
@@ -123,7 +128,8 @@ proven detection ideas and modernises everything around them.
         └─────────────────────────────────────────────────────────────────────┘
 ```
 
-> Add a real screenshot here once built: `docs/payload-builder.png`.
+<!-- Screenshot: full Payload Builder — command `rm -rf /home/carlos/...` → gadget CommonsCollections6 ★ recommended → encoding Base64 → Response 200 on the right. -->
+<p align="center"><img src="docs/payload-builder.png" alt="Payload Builder: plaintext command → CommonsCollections6 → Base64 cookie → response" width="760"><br><sub><em>Payload Builder: type a command, keep the recommended gadget, generate + insert + send, read the response.</em></sub></p>
 
 ---
 
@@ -190,7 +196,7 @@ cp /path/to/ysoserial-all.jar src/main/resources/ysoserial/ysoserial-all.jar
 mvn clean package
 
 # 3) artifact:
-#    target/java-deserialization-scanner-ng.jar
+#    target/deserialization-toolkit.jar
 ```
 
 If you skip step 1, the extension builds fine and you point it at an external
@@ -202,7 +208,7 @@ If you skip step 1, the extension builds fine and you point it at an external
 
 1. **Extensions ▸ Installed ▸ Add**
 2. Extension type: **Java**
-3. Select `target/java-deserialization-scanner-ng.jar`
+3. Select `target/deserialization-toolkit.jar`
 4. A new top-level tab **“Deserialization Toolkit”** appears.
 
 ---
@@ -216,6 +222,9 @@ Just browse the target through Burp. Findings appear under **Target ▸ Issues /
 - **“Serialized Java object in cookie: `<name>`”** — *High*. Your direct lead. Right-click the
   request → **Send to Payload Builder**.
 - **“Insecure cookie flags: `<name>`”** — *Low*. Missing `Secure`/`HttpOnly`/`SameSite`.
+
+<!-- Screenshot: Dashboard/Issues showing the HIGH "Serialized Java object in cookie" issue, detail panel naming the detected transport encoding. -->
+<p align="center"><img src="docs/passive-cookie.png" alt="Passive scan: HIGH issue for a serialized Java object in a cookie, with the detected encoding" width="760"><br><sub><em>Passive scan raises a High issue for a serialized Java object in a cookie and names the transport encoding.</em></sub></p>
 
 ### 2. Payload Builder: plaintext command → cookie → send
 
@@ -232,6 +241,9 @@ Reproducing a PortSwigger *Insecure deserialization* lab:
 The encoded payload is shown in the preview box, and the request editor is fully editable if you
 want to tweak anything before sending.
 
+<!-- Screenshot: request editor with bytes highlighted via "mark selection" / a {PAYLOAD} marker, showing flexible insertion points beyond the cookie. -->
+<p align="center"><img src="docs/insertion-points.png" alt="Flexible insertion points: mark a selection or a {PAYLOAD} marker to place the payload in a header, body or parameter" width="760"><br><sub><em>Beyond cookies: mark a selection or drop a <code>{PAYLOAD}</code> marker to inject into any header, body or parameter.</em></sub></p>
+
 ### 3. Scanner: confirm the vulnerability
 
 For blind cases, open the **Scanner** sub-tab:
@@ -243,9 +255,12 @@ For blind cases, open the **Scanner** sub-tab:
 
 Confirmed chains are remembered per host and bubble to the top of the recommender everywhere.
 
+<!-- Screenshot: Scanner results table with a red VULNERABLE row (time-based sleep confirmed) and the one-click "send to exploit" hand-off. -->
+<p align="center"><img src="docs/scanner-vuln.png" alt="Scanner: a confirmed chain highlighted as a red VULNERABLE row, ready for one-click hand-off to the Payload Builder" width="760"><br><sub><em>Scanner confirms every vulnerable chain (red rows) and hands any of them to the Payload Builder in one click.</em></sub></p>
+
 ---
 
-## 🛠 ysoserial setup & Java troubleshooting
+## 🛠 Java runtime & troubleshooting
 
 Payloads are generated **in-process** — the extension **never runs `java -jar`**, so a broken,
 missing or duplicated JDK on your machine is irrelevant.
@@ -257,6 +272,9 @@ internals, which historically forced users to add a dozen `--add-opens`/`--add-e
 Burp's `vmoptions`. **This extension opens those packages itself at load time** (via the JDK's
 trusted lookup — the same technique ByteBuddy/Lombok use), so it works on a **stock Burp with zero
 configuration**. You'll see `Runtime module access granted` in **Extensions ▸ Output**.
+
+<!-- Screenshot: Extensions ▸ Output showing the "[Deser-TK] Runtime module access granted" line — visual proof of the zero-flag setup. -->
+<p align="center"><img src="docs/jpms-auto.png" alt="Extensions ▸ Output: the extension opens the JDK-internal packages itself at load time — no vmoptions edits" width="760"><br><sub><em>Zero-flag setup: the extension opens the JDK-internal packages itself at load time — no <code>vmoptions</code> edits.</em></sub></p>
 
 <details>
 <summary><b>Fallback:</b> if a future JDK ever blocks the runtime opener, add these flags manually and restart Burp</summary>
@@ -350,6 +368,9 @@ it at runtime via **Settings ▸ ysoserial jar ▸ Browse…**.
 | **Passive cookie scanning** | On | Toggle the passive `ScanCheck` |
 
 All values persist in Burp's project/user preferences.
+
+<!-- Screenshot: Settings tab — external ysoserial path, scan threads, sleep/threshold, passive toggle. -->
+<p align="center"><img src="docs/settings.png" alt="Settings tab: external ysoserial path, scan concurrency, time-based tuning and the passive-scan toggle" width="760"><br><sub><em>Settings: point at an external ysoserial jar, tune scan concurrency and time-based thresholds, toggle passive scanning.</em></sub></p>
 
 ---
 
