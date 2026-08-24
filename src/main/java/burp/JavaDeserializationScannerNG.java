@@ -47,7 +47,7 @@ public final class JavaDeserializationScannerNG implements BurpExtension {
         }, "jdsng-init").start();
 
         MainTab mainTab = new MainTab(api, yso, settings, executors);
-        api.userInterface().registerSuiteTab("Deser Toolkit", mainTab);
+        api.userInterface().registerSuiteTab(NAME, mainTab);
         api.scanner().registerScanCheck(new CookiePassiveScanCheck(api, settings));
         api.userInterface().registerContextMenuItemsProvider(menuProvider(mainTab));
         api.extension().registerUnloadingHandler(() -> { executors.shutdown(); yso.shutdown(); });
@@ -64,9 +64,9 @@ public final class JavaDeserializationScannerNG implements BurpExtension {
                 if (rr == null) return List.of();
 
                 List<Component> items = new ArrayList<>();
-                JMenuItem toBuilder = new JMenuItem("Deser Toolkit: Send to Payload Builder");
+                JMenuItem toBuilder = new JMenuItem("Deserialization Toolkit: Send to Payload Builder");
                 toBuilder.addActionListener(e -> { mark(rr, "Payload Builder"); mainTab.sendToBuilder(rr); });
-                JMenuItem toScanner = new JMenuItem("Deser Toolkit: Send to Scanner");
+                JMenuItem toScanner = new JMenuItem("Deserialization Toolkit: Send to Scanner");
                 toScanner.addActionListener(e -> { mark(rr, "Scanner"); mainTab.sendToScanner(rr); });
                 items.add(toBuilder);
                 items.add(toScanner);
@@ -80,7 +80,7 @@ public final class JavaDeserializationScannerNG implements BurpExtension {
         try {
             rr.annotations().setHighlightColor(HighlightColor.ORANGE);
             String prev = rr.annotations().notes();
-            String note = "→ Deser Toolkit " + target;
+            String note = "→ Deserialization Toolkit " + target;
             rr.annotations().setNotes(prev == null || prev.isBlank() ? note : prev + " | " + note);
         } catch (Exception ignored) { /* transient request-responses may be read-only */ }
     }

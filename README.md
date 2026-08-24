@@ -203,7 +203,7 @@ If you skip step 1, the extension builds fine and you point it at an external
 1. **Extensions ▸ Installed ▸ Add**
 2. Extension type: **Java**
 3. Select `target/java-deserialization-scanner-ng.jar`
-4. A new top-level tab **“Deser Toolkit”** appears.
+4. A new top-level tab **“Deserialization Toolkit”** appears.
 
 ---
 
