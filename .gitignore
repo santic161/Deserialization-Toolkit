@@ -8,3 +8,4 @@ target/
 .project
 # Do not commit the (large) ysoserial fat jar
 src/main/resources/ysoserial/ysoserial-all.jar
+docs/BAPP_SUBMISSION.md
