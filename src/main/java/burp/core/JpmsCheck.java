@@ -75,20 +75,20 @@ public final class JpmsCheck {
                 .getUnnamedModule();
 
         List<String> fails = new ArrayList<>();
-        StringBuilder out = new StringBuilder("\n[JDS-NG] ===== JPMS flag self-check =====\n");
+        StringBuilder out = new StringBuilder("\n[Deser-TK] ===== JPMS flag self-check =====\n");
         for (Req r : REQUIREMENTS) {
             boolean ok = check(r, target);
             if (!ok) fails.add(r.flag());
-            out.append("[JDS-NG] ").append(ok ? "[PASS] " : "[FAIL] ").append(r.flag()).append('\n');
+            out.append("[Deser-TK] ").append(ok ? "[PASS] " : "[FAIL] ").append(r.flag()).append('\n');
         }
 
         if (fails.isEmpty()) {
-            out.append("[JDS-NG] All required module flags present. Gadget chains can run.");
+            out.append("[Deser-TK] All required module flags present. Gadget chains can run.");
             api.logging().logToOutput(out.toString());
         } else {
-            out.append("[JDS-NG] ").append(fails.size()).append(" flag(s) MISSING. Add the [FAIL] "
+            out.append("[Deser-TK] ").append(fails.size()).append(" flag(s) MISSING. Add the [FAIL] "
                     + "line(s) above to Burp's *.vmoptions (one per line) and RESTART Burp.\n");
-            out.append("[JDS-NG] Note: Groovy1 (GroovyBugError) and Clojure (Hackvertor clash) fail "
+            out.append("[Deser-TK] Note: Groovy1 (GroovyBugError) and Clojure (Hackvertor clash) fail "
                     + "regardless of flags — that is ysoserial vs. modern JDK, not a missing flag.");
             api.logging().logToError(out.toString());
         }

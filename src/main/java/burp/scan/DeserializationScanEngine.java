@@ -68,7 +68,7 @@ public final class DeserializationScanEngine {
                 .toList();
         int skipped = gadgets.size() - runnable.size();
         if (skipped > 0) {
-            api.logging().logToOutput("[JDS-NG] time-based: skipped " + skipped
+            api.logging().logToOutput("[Deser-TK] time-based: skipped " + skipped
                     + " non-command chain(s) (URLDNS/JRMPClient/C3P0/AspectJWeaver).");
         }
 
@@ -85,7 +85,7 @@ public final class DeserializationScanEngine {
                             hit, elapsed, "baseline=" + baseline + "ms elapsed=" + elapsed + "ms"));
                 } catch (Throwable e) {
                     String msg = YsoserialEngine.describe(e);
-                    api.logging().logToError("[JDS-NG] time-based " + gadget + " failed: " + msg);
+                    api.logging().logToError("[Deser-TK] time-based " + gadget + " failed: " + msg);
                     onResult.accept(new DetectionResult(host, gadget, DetectionResult.Method.TIME_BASED,
                             false, -1, "error: " + msg));
                 }
@@ -133,7 +133,7 @@ public final class DeserializationScanEngine {
                     pending.add(new Object[]{gadget, client, domain});
                 } catch (Throwable e) {
                     String msg = YsoserialEngine.describe(e);
-                    api.logging().logToError("[JDS-NG] OOB " + gadget + " failed: " + msg);
+                    api.logging().logToError("[Deser-TK] OOB " + gadget + " failed: " + msg);
                     onResult.accept(new DetectionResult(host, gadget, DetectionResult.Method.DNS_COLLABORATOR,
                             false, -1, "error: " + msg));
                 }

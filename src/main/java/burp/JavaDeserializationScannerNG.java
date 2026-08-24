@@ -5,6 +5,7 @@ import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.HighlightColor;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.core.JpmsCheck;
+import burp.core.RuntimeModuleOpener;
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
 import burp.core.ExecutorProvider;
@@ -25,7 +26,7 @@ import java.util.Optional;
  */
 public final class JavaDeserializationScannerNG implements BurpExtension {
 
-    private static final String NAME = "Java Deserialization Scanner NG";
+    private static final String NAME = "Deserialization Toolkit";
 
     private ExecutorProvider executors;
 
@@ -37,14 +38,19 @@ public final class JavaDeserializationScannerNG implements BurpExtension {
         YsoserialEngine yso = new YsoserialEngine(api, settings);
         this.executors = new ExecutorProvider(settings);
 
-        // Load ysoserial off the EDT so a slow/large jar never freezes Burp startup.
-        new Thread(() -> { yso.reload(); JpmsCheck.report(api, yso.classLoader()); }, "jdsng-init").start();
+        // Open the JDK-internal packages ysoserial needs at runtime (no vmoptions required),
+        // then load ysoserial off the EDT so a slow/large jar never freezes Burp startup.
+        new Thread(() -> {
+            RuntimeModuleOpener.openAll(api);
+            yso.reload();
+            JpmsCheck.report(api, yso.classLoader());
+        }, "jdsng-init").start();
 
         MainTab mainTab = new MainTab(api, yso, settings, executors);
-        api.userInterface().registerSuiteTab("Deserialization NG", mainTab);
+        api.userInterface().registerSuiteTab("Deser Toolkit", mainTab);
         api.scanner().registerScanCheck(new CookiePassiveScanCheck(api, settings));
         api.userInterface().registerContextMenuItemsProvider(menuProvider(mainTab));
-        api.extension().registerUnloadingHandler(() -> executors.shutdown());
+        api.extension().registerUnloadingHandler(() -> { executors.shutdown(); yso.shutdown(); });
 
         api.logging().logToOutput(NAME + " loaded. Passive cookie scanning "
                 + (settings.passiveEnabled() ? "ON" : "OFF") + ".");
@@ -58,9 +64,9 @@ public final class JavaDeserializationScannerNG implements BurpExtension {
                 if (rr == null) return List.of();
 
                 List<Component> items = new ArrayList<>();
-                JMenuItem toBuilder = new JMenuItem("JDS-NG: Send to Payload Builder");
+                JMenuItem toBuilder = new JMenuItem("Deser Toolkit: Send to Payload Builder");
                 toBuilder.addActionListener(e -> { mark(rr, "Payload Builder"); mainTab.sendToBuilder(rr); });
-                JMenuItem toScanner = new JMenuItem("JDS-NG: Send to Scanner");
+                JMenuItem toScanner = new JMenuItem("Deser Toolkit: Send to Scanner");
                 toScanner.addActionListener(e -> { mark(rr, "Scanner"); mainTab.sendToScanner(rr); });
                 items.add(toBuilder);
                 items.add(toScanner);
@@ -74,7 +80,7 @@ public final class JavaDeserializationScannerNG implements BurpExtension {
         try {
             rr.annotations().setHighlightColor(HighlightColor.ORANGE);
             String prev = rr.annotations().notes();
-            String note = "→ JDS-NG " + target;
+            String note = "→ Deser Toolkit " + target;
             rr.annotations().setNotes(prev == null || prev.isBlank() ? note : prev + " | " + note);
         } catch (Exception ignored) { /* transient request-responses may be read-only */ }
     }
